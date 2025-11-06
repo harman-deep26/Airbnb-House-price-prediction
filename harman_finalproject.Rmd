@@ -1,0 +1,632 @@
+---
+title: "AIRBNB PRICE LISTING"
+author: "Harmandeeep kaur"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: cerulean
+  pdf_document: default
+warnings: false
+---
+
+Firstly i will load the dataset ,as the dataset is large it is not possible to show it as a whole so im only showing colnames of the daatset so that u can have info about what type of data it is.
+
+## DATA IMPORTING
+
+```{r}
+rproject<-read.csv("C:/Users/lenovo/OneDrive/Desktop/final/Airbnb_Open.csv")#data importing
+colnames(rproject)
+```
+
+This is the structure and summary of the dataset
+
+```{r }
+str(rproject)
+summary(rproject)
+```
+
+## DATA PREPROCESSING
+
+## Dealing with missing values
+
+Now i will be doing data preprocessing and transformation wherever needed,firstly i will be loading tidyr and dplyr packages
+
+```{r}
+library(dplyr)
+library(tidyr)
+```
+
+Every value which will be missing will replaced with NA,so that preprocessing will be easy
+
+```{r}
+rproject<- rproject %>% mutate_all(~ ifelse(. == "", NA, .))
+#now check how many missing values are there 
+summary(is.na(rproject))
+```
+
+```{r}
+rproject$host_identity_verified[1:25]
+```
+
+firstly i will replace NA values in host_identity_verified
+
+```{r}
+rproject$host_identity_verified[which(is.na(rproject$host_identity_verified))]<-"unconfirmed"
+rproject$host_identity_verified[1:25]
+```
+
+```{r}
+rproject$reviews.per.month[1:40]
+```
+
+Now i will replace NA values in reviews.per.month by mean of that column
+
+```{r}
+rproject$reviews.per.month[which(is.na(rproject$reviews.per.month))]<-mean(rproject$reviews.per.month,na.rm=TRUE)
+rproject$reviews.per.month[1:40]
+```
+
+Now i will replace NA values in lat and long by mean of that column
+
+```{r}
+ rproject$lat[which(is.na(rproject$lat))]<-mean(rproject$lat,na.rm=TRUE)
+rproject$long[which(is.na(rproject$long))]<-mean(rproject$long,na.rm=TRUE)
+rproject$lat[1:50]
+rproject$long[1:20]
+```
+
+```{r}
+rproject$minimum.nights[1:50]
+```
+
+Replace NA with mode
+
+```{r}
+freq_table <- table(rproject$minimum.nights)
+most_occuring_value <- names(freq_table)[which.max(freq_table)]
+#print(most_occuring_value)
+rproject$minimum.nights[which(is.na(rproject$minimum.nights))]<-most_occuring_value
+
+rproject$minimum.nights[1:50]
+```
+
+```{r}
+rproject$service.fee[1:20]
+```
+
+Replace NA of service_fee and price with their mean
+
+```{r}
+rproject$service.fee <- as.numeric(sub("\\$", "", rproject$service.fee))
+rproject$service.fee[which(is.na(rproject$service.fee))]<-mean(rproject$service.fee,na.rm=TRUE)
+summary(is.na(rproject$service.fee))
+
+rproject$price <- as.numeric(sub("\\$", "", rproject$price))
+rproject$price[which(is.na(rproject$price))]<-mean(rproject$price,na.rm=TRUE)
+rproject$price <- as.numeric(gsub("[^0-9.]", "", rproject$price))
+summary(is.na(rproject$price))
+```
+
+##Mode FALSE
+
+##logical 10000
+
+this specifies there is no null values in this column
+
+Now i have done all the preprocessing that can be done....now it is turn to omit the left out null values as they can'nt be preprocessed
+
+```{r}
+rproject<-na.omit(rproject)
+summary(is.na(rproject))# now there is no missing value in the datset
+```
+
+## Dealing with outliers
+
+```{r}
+qnt <- quantile(rproject$price, probs=c(.25, .75), na.rm = TRUE)
+H <- 1.5 * IQR(rproject$price)
+rproject <-rproject%>%
+  filter(price >= qnt[1] - H & price <= qnt[2] + H)
+qnt <- quantile(rproject$service.fee, probs=c(.25, .75), na.rm = TRUE)
+H <- 1.5 * IQR(rproject$service.fee)
+rproject <-rproject%>%
+  filter(service.fee >= qnt[1] - H & service.fee <= qnt[2] + H)
+```
+
+## Dealing with eroneous data
+
+```{r}
+rproject$neighbourhood.group<- recode(rproject$neighbourhood.group,
+                                          "manhatan" = "Manhattan",
+                                          "brookln" = "Brooklyn")
+```
+
+## DATA TRANSFORMATION
+
+```{r}
+#Calculate total revenue by multiplying price by minimum nights
+ncol(rproject)
+library(dplyr)
+rproject$price <- as.numeric(rproject$price)
+rproject$minimum.nights <- as.numeric(rproject$minimum.nights)
+rproject <- rproject %>%
+  mutate(total_revenue = price * minimum.nights)
+#  Create a new variable for the number of years since construction
+current.year <- 2024  
+rproject <- rproject %>%
+  mutate(years.since.construction = current.year - Construction.year)
+rproject$total_revenue[1:20]
+rproject$years.since.construction[1:25]
+# now i have transformed the data and two new columns are added
+ncol(rproject)
+```
+
+## EXPLORATORY DATA ANALYSIS
+
+```{r}
+# Summary statistics for numeric variables
+print(colnames(rproject))
+summary(rproject[, c("lat","long","Construction.year","price", "service.fee",
+                     "minimum.nights", "number.of.reviews", "reviews.per.month",
+                     "review.rate.number","availability.365",
+                    "total_revenue","years.since.construction")])
+
+#correlation
+ correlation_matrix<-cor(rproject[, c("lat","long","Construction.year","price", "service.fee",
+                     "minimum.nights", "number.of.reviews", "reviews.per.month",
+                     "review.rate.number","availability.365",
+                     "total_revenue","years.since.construction")])
+head(correlation_matrix)
+```
+
+## VISUALIZATIONS
+
+```{r, warning=FALSE}
+# Histogram for price
+hist( rproject$price,xlab="price",col="lightblue",border="black",main = "Histogram of Price")
+```
+
+```{r,warning=FALSE}
+# Histogram for number of reviews
+hist(rproject$number.of.reviews,xlab="number of review", main = "Histogram of Number of Reviews")
+```
+
+```{r,warning=FALSE}
+# Scatterplot matrix for selected numeric variables
+pairs(select(rproject, c("lat", "long", "price", "minimum.nights", "number.of.reviews")),col="black",border="black")
+```
+
+```{r,warning=FALSE}
+# Bar plot for neighborhood group
+barplot(table(rproject$neighbourhood.group), 
+        main = "Distribution of Listings by Neighborhood Group",
+        xlab = "Neighborhood Group", ylab = "Count",
+        col = "skyblue", border = "black", las = 1)
+```
+
+```{r,warning=FALSE}
+  # Density plot for 'reviews per month'
+plot(density(rproject$reviews.per.month), 
+     main = "Density Plot of Reviews per Month",
+     xlab = "Reviews per Month", ylab = "Density")
+```
+
+```{r,warning=FALSE}
+# Boxplot matrix
+#par(mfrow = c(2, 2))  # Set up a 2x2 grid of plots
+
+# Boxplot of 'price' by 'room type'
+boxplot(as.numeric(gsub("[$,]", "", rproject$price)) ~ rproject$room.type, 
+        main = "Boxplot of Price by Room Type",
+        col = c("lightblue", "lightgreen"),xlab="Room type",
+        ylab = "Price")
+
+# Boxplot of 'minimum nights' by 'room type'
+boxplot(rproject$minimum.nights ~ rproject$room.type, 
+        main = "Boxplot of Minimum Nights by Room Type",
+        col = c("lightblue", "lightgreen"),xlab="Room type",
+        ylab = "Minimum Nights")
+
+# Boxplot of 'number of reviews' by 'room type'
+boxplot(rproject$number.of.reviews ~ rproject$room.type, 
+        main = "Boxplot of Number of Reviews by Room Type",
+        col = c("lightblue", "lightgreen"),xlab="Room type",
+        ylab = "Number of Reviews")
+
+# Reset the plotting layout
+par(mfrow = c(1, 1))
+
+```
+
+```{r,warning=FALSE}
+# Scatterplot of 'price' vs. 'number of reviews' with color by 'room type'
+plot(rproject$number.of.reviews, as.numeric(gsub("[$,]", "", rproject$price)), 
+     col = as.numeric(factor(rproject$room.type)),
+     pch = 16,
+     main = "Scatterplot of Price vs. Number of Reviews",
+     xlab = "Number of Reviews", ylab = "Price")
+```
+
+```{r,warning=FALSE}
+# Histogram of Years Since Construction
+hist(rproject$years.since.construction,
+     main = "Histogram of Years Since Construction",
+     xlab = "Years Since Construction",
+     col = "skyblue")
+```
+
+```{r}
+# Convert necessary columns to numeric or Date if needed
+rproject$total_revenue <- as.numeric(rproject$total_revenue)
+rproject$years.since.construction <- as.numeric(rproject$years.since.construction)
+rproject$last.review <- as.Date(rproject$last.review, format = "%m/%d/%Y")
+```
+
+```{r}
+# Scatter plot of Years Since Construction vs. Total Revenue
+ plot(rproject$years.since.construction, rproject$total_revenue,
+     xlab = "Years Since Construction",
+     ylab = "Total Revenue",
+     main = "Scatter Plot")
+
+```
+
+```{r}
+# Boxplot of Total Revenue by Room Type
+boxplot(total_revenue ~ room.type, data = rproject,
+        main = "Boxplot of Total Revenue by Room Type",
+        xlab = "Room Type", ylab = "Total Revenue",
+        col = "lightblue")
+```
+
+```{r}
+# Line plot of Reviews per Month over Time
+plot(rproject$last.review, rproject$reviews.per.month,
+     type = "l",
+     xlab = "Last Review Date", ylab = "Reviews per Month",
+     main = "Reviews per Month over Time",
+     col = "red")
+```
+
+## FEATURE ENGGINEERING
+
+Here i am going to create new features from the existing data 1.distance_to_times_square
+
+```{r}
+library(geosphere)
+landmark_lat <- 40.7580
+landmark_long <- -73.9855
+rproject$distance_to_times_square <- distHaversine(matrix(c(landmark_long, landmark_lat), nrow = 1),rproject[, c("long", "lat")])
+rproject$distance_to_times_square[1:20]
+```
+
+2.price_per_min_night
+
+```{r}
+# Calculate price per minimum night
+rproject$price_per_min_night <- as.numeric(gsub("[$,]", "", rproject$price)) / rproject$minimum.nights
+rproject$price_per_min_night[1:20]
+
+```
+
+```{r}
+#Convert date strings to Date class
+rproject$last.review <- as.Date(rproject$last.review, format="%m/%d/%Y")
+rproject$Construction.year <- as.Date(paste(rproject$Construction.year, "/01/01", sep=""), format="%Y/%m/%d")
+```
+
+```{r}
+#Calculate host tenure (days since first review)
+rproject$host_tenure <- as.numeric(difftime(rproject$last.review, rproject$Construction.year, units = "days"))
+```
+
+```{r}
+# Display the head of the modified dataset
+head(rproject[, c("id", "last.review", "Construction.year", "host_tenure")])
+```
+
+```{r}
+# Convert last.review to Date class
+rproject$last.review <- as.Date(rproject$last.review, format="%m/%d/%Y")
+
+# Calculate days since last review
+days_since_last_review <- as.numeric(as.Date("2024-07-04") - rproject$last.review)
+
+# Calculate booking activity rate
+rproject$booking_activity_rate <- rproject$number.of.reviews / (days_since_last_review / 30)
+
+# Display the head of the modified dataset
+head(rproject[, c("id", "last.review", "number.of.reviews", "booking_activity_rate")])
+```
+
+```{r}
+# Calculate days since last review
+rproject$days_since_last_review <- as.numeric(as.Date("2024-07-04") - as.Date(rproject$last.review, format="%m/%d/%Y"))
+
+# Display the head of the modified dataset
+head(rproject[, c("id", "neighbourhood", "lat", "long", "distance_to_times_square", "price_per_min_night", 
+                  "host_tenure", "booking_activity_rate",  "days_since_last_review")])
+```
+
+## MODELLING
+
+Firstly i am splitting the dataset into training and testing data
+
+```{r}
+library(rpart)
+library(randomForest)
+
+set.seed(123)
+
+
+trainIndex <- sample(1:nrow(rproject), 0.7*nrow(rproject))#so i have divided 70% into training data and remaining 30% into testing data
+trainData <- rproject[trainIndex, ]
+testData <- rproject[-trainIndex, ]
+dim(trainData )
+dim(testData)
+```
+
+## 1.REGRESSION MODEL
+
+```{r}
+# Fit linear regression model
+lm_model <- lm(price ~ service.fee + total_revenue + long, data = trainData)
+summary(lm_model)
+#Prediction using this model
+lm_pred <- predict(lm_model, newdata = testData)
+```
+
+## 2.DECISION TREE MODEL
+
+```{r}
+# Fit decision tree model
+tree_model <- rpart(price ~ service.fee + total_revenue + long, data = trainData)
+plot(tree_model)
+text(tree_model)
+#Prediction using this model
+tree_pred <- predict(tree_model, newdata = testData)
+```
+
+## 3. RANDOM FOREST MODEL
+
+```{r}
+# Fit random forest model
+rf_model <- randomForest(price ~ service.fee + total_revenue + long, data = trainData)
+# Print summary of the random forest model
+print(rf_model)
+#Prediction using this model
+rf_pred <- predict(rf_model, newdata = testData)
+```
+
+. I will be evaluating the models i made above on the basis of RMSE and R-squared
+
+## 1.RMSE
+
+```{r}
+#I have made a function to calculate RMSE for various models
+rmse <- function(actual, predicted) {
+  sqrt(mean((actual - predicted)^2))
+}
+# Calculate RMSE for each model
+lm_rmse <- rmse(testData$price, lm_pred)
+tree_rmse <- rmse(testData$price, tree_pred)
+rf_rmse <- rmse(testData$price, rf_pred)
+
+cat("Linear Regression RMSE:", lm_rmse, "\n")
+cat("Decision Tree RMSE:", tree_rmse, "\n")
+cat("Random Forest RMSE:", rf_rmse, "\n")
+```
+
+The model which has lower RMSE value will be perfect for prediction ,so i can say "RANDOM FOREST "model is best for prediction in this case.
+
+## R-SQUARED
+
+```{r}
+#Calculate R-squared for Regression model
+lm_summary<-summary(lm_model)
+lm_rsq <- lm_summary$r.squared
+cat("Linear Regression R-squared:", lm_rsq, "\n")
+# Calculate R-squared for decision tree model 
+ss_res <- sum((testData$price - tree_pred)^2)
+ss_tot <- sum((testData$price - mean(testData$price))^2)
+tree_rsq <- 1 - ss_res/ss_tot
+cat("Decision Tree R-squared:", tree_rsq, "\n")
+# Calculate R-squared for random forest model (using OOB estimate)
+rf_rsq <- 1 - rf_model$mse[1]/var(trainData$price)
+cat("Random Forest R-squared:", rf_rsq, "\n")
+
+
+```
+
+R-squared value mostly lies between 0,1 ,more closer it is to 1 the model is that much perfect Linear Regression R-squared: 0.5561667 Decision Tree R-squared: 0.9614574 Random Forest R-squared: 0.9442709 from here we can say Random Forest, Decision Tree model perfectly fits for prediction
+
+## VISUALIZATIONS OF EACH MODEL
+
+```{r}
+
+# linear regression
+plot(testData$price, lm_pred, main = "Linear Regression: Actual vs. Predicted Prices", 
+     xlab = "Actual Prices", ylab = "Predicted Prices")
+abline(0, 1,col="red")
+
+#  decision tree
+plot(testData$price, tree_pred, main = "Decision Tree: Actual vs. Predicted Prices", 
+     xlab = "Actual Prices", ylab = "Predicted Prices")
+abline(0, 1,col="red")
+
+#  random forest
+plot(testData$price, rf_pred, main = "Random Forest: Actual vs. Predicted Prices", 
+     xlab = "Actual Prices", ylab = "Predicted Prices")
+abline(0, 1,col="red")
+```
+
+From the above graphs u can see random forestis perfectly predicting price values
+
+## PLOT OF RMSE COMPARISON
+
+```{r}
+
+rmse_df <- data.frame(Model = c("Linear Regression", "Decision Tree", "Random Forest"),
+                      RMSE = c(lm_rmse, tree_rmse, rf_rmse))
+print(rmse_df)
+barplot(rmse_df$RMSE, names.arg = rmse_df$Model, 
+        main = "RMSE Comparison of Regression Models",
+        ylab = "RMSE", col = "skyblue")
+
+
+
+```
+
+The above graph is showing which is is perfect model from all three models:Random forest
+
+```{r}
+# print summary of regression model
+summary(lm_model)
+# Print summary of the decision tree model
+summary(tree_model)
+# Plot the decision tree (optional)
+plot(tree_model)
+text(tree_model)
+# Print summary of the random forest model
+print(rf_model)
+# Plot variable importance
+varImpPlot(rf_model)
+
+```
+
+```{r}
+## ANOVA
+# Fit an ANOVA model
+anova_model <- aov(price ~ room.type, data = rproject)
+
+# Display ANOVA summary
+summary(anova_model)
+
+# Post-hoc test if needed (Tukey's HSD)
+tukey_result <- TukeyHSD(anova_model)
+print(tukey_result)
+
+```
+
+```{r}
+#install.packages("class")
+#install.packages("ggplot2")
+#install.packages("caret")
+library("class")
+library("ggplot2")
+library("caret")
+
+# Assuming you have already loaded the Airbnb dataset
+# We'll create a simplified version of the dataset to work with
+
+# Select relevant columns for the prediction (for demonstration)
+# Let's predict 'room.type' using 'price', 'minimum.nights', and 'reviews.per.month'
+train_data <- rproject[, c("price", "availability.365", "number.of.reviews", "room.type", "lat", "long")]
+train_labels <- rproject$neighbourhood.group  # Target variable: neighbourhood.group
+
+# Preprocessing: Convert categorical variables (room.type) to numeric
+train_data$room.type <- as.numeric(factor(train_data$room.type))
+
+# Normalize the data to ensure fair distance calculation
+train_data_norm <- scale(train_data)
+
+# Create a new listing for prediction
+new_listing <- data.frame(price = 250, availability.365 = 300, number.of.reviews = 150, 
+                          room.type = "Entire home/apt", lat = 40.7128, long = -74.0060)
+
+# Convert 'room.type' of the new listing to numeric (same transformation as the training data)
+new_listing$room.type <- as.numeric(factor(new_listing$room.type))
+
+# Normalize the new listing data using the same scale as the training data
+new_listing_norm <- scale(new_listing, center = attr(train_data_norm, "scaled:center"), 
+                          scale = attr(train_data_norm, "scaled:scale"))
+
+# Apply k-NN with k = 5 (you can adjust 'k' as needed)
+knn_prediction <- knn(train_data_norm, new_listing_norm, train_labels, k = 5)
+
+# Print the prediction result
+print(paste("Predicted neighbourhood group for new listing:", knn_prediction))
+
+# Visualizing the data with a clear separation
+
+# Plot 'price' vs 'availability.365' with neighbourhood.group as color
+ggplot(rproject, aes(x = price, y = availability.365, color = neighbourhood.group)) +
+  geom_point(size = 3) +  # Plot existing listings with different colors based on neighbourhood.group
+  geom_point(data = new_listing, aes(x = price, y = availability.365), 
+             color = "red", size = 5, shape = 17) +  # Add the new listing in red
+  labs(title = "KNN Classification: Neighbourhood Group Prediction",
+       x = "Price", y = "Availability (Days per Year)") +
+  theme_minimal()
+
+# Plot 'price' vs 'number.of.reviews' with neighbourhood.group as color
+ggplot(rproject, aes(x = price, y = number.of.reviews, color = neighbourhood.group)) +
+  geom_point(size = 3) +
+  geom_point(data = new_listing, aes(x = price, y = number.of.reviews), 
+             color = "red", size = 5, shape = 17) +
+  labs(title = "KNN Classification: Neighbourhood Group Prediction",
+       x = "Price", y = "Number of Reviews") +
+  theme_minimal()
+
+# Plot 'lat' vs 'long' with neighbourhood.group as color
+ggplot(rproject, aes(x = long, y = lat, color = neighbourhood.group)) +
+  geom_point(size = 3) +
+  geom_point(data = new_listing, aes(x = long, y = lat), 
+             color = "red", size = 5, shape = 17) +
+  labs(title = "KNN Classification: Neighbourhood Group Prediction",
+       x = "Longitude", y = "Latitude") +
+  theme_minimal()
+```
+
+```{r}
+##K-MEANS CLUSTERING
+# Install necessary packages if not already installed
+#install.packages("ggplot2")
+#install.packages("caret")
+#install.packages("cluster")
+library(ggplot2)
+library(caret)
+library(cluster)
+
+# Select meaningful columns for clustering
+clustering_data <- rproject[, c("price", "availability.365", "number.of.reviews", "lat", "long")]
+
+# Preprocessing: Normalize the data to ensure fair distance calculation
+clustering_data_norm <- scale(clustering_data)
+
+# Run K-means clustering with k=3 (you can experiment with other values of k)
+set.seed(123)  # Set seed for reproducibility
+kmeans_result <- kmeans(clustering_data_norm, centers = 3, nstart = 25)
+
+# Print the cluster centers (centroids) to understand the meaning of each cluster
+print("Cluster Centers (Centroids):")
+print(kmeans_result$centers)
+
+# Add the cluster assignment to the original data
+rproject$cluster <- as.factor(kmeans_result$cluster)
+
+# Visualize the clusters using ggplot
+# Plot 'price' vs 'availability.365' with clusters as color
+ggplot(rproject, aes(x = price, y = availability.365, color = cluster)) +
+  geom_point(size = 3) +  # Plot the points with cluster colors
+  labs(title = "K-means Clustering: Price vs Availability",
+       x = "Price", y = "Availability (Days per Year)") +
+  theme_minimal()
+
+# Plot 'price' vs 'number.of.reviews' with clusters as color
+ggplot(rproject, aes(x = price, y = number.of.reviews, color = cluster)) +
+  geom_point(size = 3) +
+  labs(title = "K-means Clustering: Price vs Number of Reviews",
+       x = "Price", y = "Number of Reviews") +
+  theme_minimal()
+
+# Plot 'lat' vs 'long' with clusters as color (Geographical view)
+ggplot(rproject, aes(x = long, y = lat, color = cluster)) +
+  geom_point(size = 3) +
+  labs(title = "K-means Clustering: Latitude vs Longitude",
+       x = "Longitude", y = "Latitude") +
+  theme_minimal()
+
+# Print cluster assignments for the first few rows to understand how the data is grouped
+head(rproject[, c("price", "availability.365", "number.of.reviews", "lat", "long", "cluster")])
+
+```
